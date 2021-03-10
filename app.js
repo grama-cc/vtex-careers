@@ -2,7 +2,7 @@ const WPAPI = require("wpapi");
 const fetch = require("node-fetch");
 const base64 = require("base-64");
 
-const URL = "http://mmg.vfg.mybluehost.me/careers/wp-json";
+const URL = "https://careers-stg.mmg.vfg.mybluehost.me/wp-json";
 const USER = process.env.WP_USER;
 const TOKEN = process.env.WP_TOKEN;
 const LEVER_API_TOKEN = process.env.LEVER_API_TOKEN;
@@ -120,13 +120,18 @@ async function getPosts() {
         posts.push(post);
       }
       if (x._paging.links.next) {
-        const urlParams = new URLSearchParams(x._paging.links.next);
-        await wp
-          .postings()
-          .perPage(100)
-          .page(urlParams.get("page"))
-          .then(next)
-          .catch(next);
+        const nextUrl = x._paging.links.next;
+        const pageParam = nextUrl.match('[?&]page=([^&]+)');
+        const nextPage = pageParam && pageParam.length ? pageParam[1] : null;
+
+        if (nextPage) {
+          await wp
+            .postings()
+            .perPage(100)
+            .page(nextPage)
+            .then(next)
+            .catch(next);
+        }
       }
     }
   };
@@ -141,15 +146,15 @@ async function updatePosts(leverPostings, wpPostings) {
   const wpPostingsIDs = [];
   const leverPostingsIDs = [];
   const createPostsRepo = [];
-  var hasUpdate = false;
+  let hasUpdate = false;
 
   for (const leverPosting of leverPostings) {
     leverPostingsIDs.push(leverPosting.meta.posting_id);
   }
 
   for (const wpPosting of wpPostings) {
-    if (wpPosting.metadata.posting_id) {
-      wpPostingsIDs.push(wpPosting.metadata.posting_id[0]);
+    if (wpPosting && wpPosting.acf && wpPosting.acf.posting_id) {
+      wpPostingsIDs.push(wpPosting.acf.posting_id);
     }
   }
 
@@ -157,10 +162,14 @@ async function updatePosts(leverPostings, wpPostings) {
     for (const leverPosting of leverPostings) {
       //updating
       if (
-        wpPosting.metadata.posting_id &&
-        wpPosting.metadata.posting_id[0] === leverPosting.meta.posting_id
+        wpPosting.acf.posting_id &&
+        wpPosting.acf.posting_id === leverPosting.meta.posting_id
       ) {
-        if (leverPosting.meta.updated_at > wpPosting.metadata.updated_at[0]) {
+        if (
+          wpPosting.afc &&
+          wpPosting.acf.updated_at &&
+          leverPosting.meta.updated_at > wpPosting.acf.updated_at
+        ) {
           hasUpdate = true;
           await wp.postings().id(wpPosting.id).update(leverPosting);
           console.log(
@@ -180,20 +189,22 @@ async function updatePosts(leverPostings, wpPostings) {
     }
 
     //removing
-    if (
-      wpPosting.metadata.posting_id &&
-      !leverPostingsIDs.includes(wpPosting.metadata.posting_id[0])
-    ) {
-      hasUpdate = true;
-      await wp
-        .postings()
-        .id(wpPosting.id)
-        .delete()
-        .catch((err) => console.log(err));
-
-      console.log(
-        `Removendo vaga: "${wpPosting.title.rendered.replace("&#8211;", "-")}"`
-      );
+    if (wpPosting && wpPosting.acf) {
+      if (
+        !wpPosting.acf.posting_id ||
+        !leverPostingsIDs.includes(wpPosting.acf.posting_id)
+      ) {
+        hasUpdate = true;
+        await wp
+          .postings()
+          .id(wpPosting.id)
+          .delete()
+          .catch((err) => console.log(err));
+  
+        console.log(
+          `Removendo vaga: "${wpPosting.title.rendered.replace("&#8211;", "-")}"`
+        );
+      }
     }
   }
 
