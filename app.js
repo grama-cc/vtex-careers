@@ -2,7 +2,7 @@ const WPAPI = require("wpapi");
 const fetch = require("node-fetch");
 const base64 = require("base-64");
 
-const URL = "https://careers-stg.mmg.vfg.mybluehost.me/wp-json";
+const URL = "https://careers-vtex.mmg.vfg.mybluehost.me/wp-json";
 const USER = process.env.WP_USER;
 const TOKEN = process.env.WP_TOKEN;
 const LEVER_API_TOKEN = process.env.LEVER_API_TOKEN;
@@ -233,6 +233,21 @@ async function updatePosts(leverPostings, wpPostings) {
 }
 
 async function applyJob() {
+  if (!USER) {
+    console.log('\nProcesso interrompido! export WP_USER=\n');
+    return;
+  }
+
+  if (!TOKEN) {
+    console.log('\nProcesso interrompido! export WP_TOKEN=\n');
+    return;
+  }
+
+  if (!LEVER_API_TOKEN) {
+    console.log('\nProcesso interrompido! export LEVER_API_TOKEN=\n');
+    return;
+  }
+
   const wpPostings = await getPosts();
   const leverPostings = await getLeverData();
   await updatePosts(leverPostings, wpPostings);
