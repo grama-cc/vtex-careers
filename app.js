@@ -166,8 +166,8 @@ async function updatePosts(leverPostings, wpPostings) {
         wpPosting.acf.posting_id === leverPosting.meta.posting_id
       ) {
         if (
-          wpPosting.afc &&
           wpPosting.acf.updated_at &&
+          leverPosting.meta.updated_at &&
           leverPosting.meta.updated_at > wpPosting.acf.updated_at
         ) {
           hasUpdate = true;
