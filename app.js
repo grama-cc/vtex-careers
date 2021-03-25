@@ -2,7 +2,9 @@ const WPAPI = require("wpapi");
 const fetch = require("node-fetch");
 const base64 = require("base-64");
 
-const URL = "https://careers-vtex.mmg.vfg.mybluehost.me/wp-json";
+
+const NODE_ENV = process.env.NODE_ENV;
+const URL = `https://careers-${NODE_ENV ? 'stg' : 'vtex'}.mmg.vfg.mybluehost.me/wp-json`;
 const USER = process.env.WP_USER;
 const TOKEN = process.env.WP_TOKEN;
 const LEVER_API_TOKEN = process.env.LEVER_API_TOKEN;
@@ -12,91 +14,123 @@ const wp = new WPAPI({
   username: USER,
   password: TOKEN,
 });
+
+console.log(URL);
+
 wp.postings = wp.registerRoute("wp/v2", "/postings/(?P<id>)");
+wp.categories = wp.registerRoute("wp/v2", "/categories/(?P<id>)");
+
+function compareObjects(a, b) {
+  const aProperties = Object.getOwnPropertyNames(a);
+  const bProperties = Object.getOwnPropertyNames(b);
+
+  if (aProperties.length !== bProperties.length) {
+    return false;
+  }
+
+  for (let i = 0; i < aProperties.length; i++) {
+    const propertiesName = aProperties[i];
+
+    if (a[propertiesName] !== b[propertiesName]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function containsObjectInArray(objectItem, objectArray) {
+  for (let i = 0; i < objectArray.length; i++) {
+    if (compareObjects(objectItem, objectArray[i])) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function getLeverData() {
-  console.log("Carregando vagas cadastradas na Lever ...");
-  const postings = await (
-    await fetch("https://api.lever.co/v1/postings?limit=1000&state=published", {
-      headers: {
-        Authorization: `Basic ${base64.encode(LEVER_API_TOKEN)}`,
-      },
-    })
-  ).json();
+  console.log('Carregando vagas cadastradas na Lever ...');
+
+  const postings = await (await fetch(
+    'https://api.lever.co/v1/postings?limit=1000&state=published', {
+      headers: { Authorization: `Basic ${base64.encode(LEVER_API_TOKEN)}` }
+    }))
+    .json();
 
   const wp_postings = [];
 
   for (const posting of postings.data) {
     const originalDescription = posting.content.description;
-
-    let title = "";
-    title = "ABOUT THE TEAM AND THE OPPORTUNITY";
+    let title = 'ABOUT THE TEAM AND THE OPPORTUNITY';
     let indexPostingDesc = posting.content.description.indexOf(title);
 
     if (indexPostingDesc === -1) {
-      title = "About the team";
+      title = 'About the team';
       indexPostingDesc = posting.content.description.indexOf(title);
     }
+
     if (indexPostingDesc === -1) {
-      title = "ABOUT THE TEAM AND OPPORTUNITY";
+      title = 'ABOUT THE TEAM AND OPPORTUNITY';
       indexPostingDesc = posting.content.description.indexOf(title);
     }
+
     if (indexPostingDesc === -1) {
-      title = "IN THIS ROLE, YOU WILL ";
+      title = 'IN THIS ROLE, YOU WILL ';
       indexPostingDesc = posting.content.description.indexOf(title);
     }
+
     if (indexPostingDesc === -1) {
-      title = "ABOUT THE POOL AND OPPORTUNITY";
+      title = 'ABOUT THE POOL AND OPPORTUNITY';
       indexPostingDesc = posting.content.description.indexOf(title);
     }
 
     debugger;
+
     if (indexPostingDesc !== -1) {
       posting.content.description = posting.content.description.substring(
-        indexPostingDesc
+        indexPostingDesc,
       );
 
-      indexPostingDesc = posting.content.description.indexOf("/div>");
+      indexPostingDesc = posting.content.description.indexOf('/div>');
       posting.content.description = posting.content.description.substring(
-        indexPostingDesc + 5
+        indexPostingDesc + 5,
       );
 
-      posting.content.description =
-        `<div>${title}</div>` + posting.content.description;
+      posting.content.description = `<div>${title}</div>${
+        posting.content.description
+      }`;
     }
 
-    let lists = "";
+    let lists = '';
+
     posting.content.lists.forEach((item) => {
-      lists += `<div style="list-header">${item.text}</div>`;
-      lists += `<div style="list-content">${item.content}</div>`;
+      lists = `${lists}<div style="list-header">${item.text}</div>`;
+      lists = `${lists}<div style="list-content">${item.content}</div>`;
     });
 
     const wp_posting = {
       title: `${posting.text} - ${posting.categories.location}`,
-      content: "",
+      content: '',
       status: "publish",
       slug: `${posting.text}-${posting.categories.location}`,
-
       meta: {
         posting_name: posting.text,
         category_commitment: posting.categories.commitment,
         category_department: posting.categories.department,
         category_location: posting.categories.location,
         category_team: posting.categories.team,
-
         posting_id: posting.id,
         hosted_url: posting.urls && posting.urls.show,
         apply_url: posting.urls && posting.urls.apply,
         created_at: posting.createdAt,
         updated_at: posting.updatedAt,
-
         about_us: ABOUT_US,
         our_culture: OUR_CULTURE,
-
         description: originalDescription,
         additional: posting.content.closingHtml,
         lists: lists,
@@ -108,25 +142,27 @@ async function getLeverData() {
   }
 
   console.log(`${wp_postings.length} vagas carregadas com sucesso!\n`);
+
   return wp_postings;
 }
 
 async function getPosts() {
-  console.log("\nCarregando vagas cadastradas no Wordpress ...");
+  console.log('\nCarregando vagas cadastradas no Wordpress ...');
+
   const posts = [];
   const next = async (x) => {
     if (x.length > 0) {
       for (const post of x) {
         posts.push(post);
       }
+
       if (x._paging.links.next) {
         const nextUrl = x._paging.links.next;
         const pageParam = nextUrl.match('[?&]page=([^&]+)');
         const nextPage = pageParam && pageParam.length ? pageParam[1] : null;
 
         if (nextPage) {
-          await wp
-            .postings()
+          await wp.postings()
             .perPage(100)
             .page(nextPage)
             .then(next)
@@ -135,14 +171,127 @@ async function getPosts() {
       }
     }
   };
-  await wp.postings().perPage(100).then(next).catch(next);
+
+  await wp.postings()
+    .perPage(100)
+    .then(next)
+    .catch(next);
   await sleep(200);
+
   console.log(`${posts.length} vagas carregadas com sucesso!\n`);
+
   return posts;
 }
 
+async function getWpCategories() {
+  console.log('Atualizando categorias cadastradas no Wordpress ...');
+
+  const categories = [];
+  const next = async (x) => {
+    if (x.length > 0) {
+      for (const category of x) {
+        categories.push(category);
+      }
+
+      if (x._paging.links.next) {
+        const nextUrl = x._paging.links.next;
+        const pageParam = nextUrl.match('[?&]page=([^&]+)');
+        const nextPage = pageParam && pageParam.length ? pageParam[1] : null;
+
+        if (nextPage) {
+          await wp.categories()
+            .perPage(100)
+            .page(nextPage)
+            .then(next)
+            .catch(next);
+        }
+      }
+    }
+  };
+
+  await wp.categories()
+    .perPage(100)
+    .then(next)
+    .catch(next);
+  await sleep(200);
+
+  console.log(`${categories.length} categorias carregadas com sucesso!\n`);
+
+  return categories;
+}
+
+async function getLeverLocations(leverPostings) {
+  console.log('Carregando localizações dos posts no Lever ...');
+
+  const locations = [];
+
+  for (const leverPosting of leverPostings) {
+    if (leverPosting.meta.category_location.length) {
+      const leverPostingLocations = leverPosting.meta.category_location.split(' ou ');
+
+      for (const location of leverPostingLocations) {
+        const currentLocation = location.replace('&', '&amp;')
+
+        if (!locations.includes(currentLocation)) {
+          locations.push(currentLocation);
+        }
+      }
+    }
+  }
+
+  return locations;
+}
+
+async function getLeverDepartments(leverPostings) {
+  console.log('Carregando departamentos dos posts no Lever ...');
+
+  const departments = [];
+
+  for (const leverPosting of leverPostings) {
+    if (
+      leverPosting.meta.category_department &&
+      leverPosting.meta.category_department.length
+    ) {
+      const department = leverPosting.meta.category_department.replace('&', '&amp;');
+
+      if (!departments.includes(department)) {
+        departments.push(department);
+      }
+    }
+  }
+
+  return departments;
+}
+
+async function getLeverTeams(leverPostings) {
+  console.log('Carregando times dos posts no Lever ...\n');
+
+  const teams = [];
+
+  for (const leverPosting of leverPostings) {
+    if (
+      leverPosting.meta.category_team &&
+      leverPosting.meta.category_department &&
+      leverPosting.meta.category_department.length > 0 &&
+      leverPosting.meta.category_team.length > 0
+    ) {
+      const team = {
+        name: leverPosting.meta.category_team.replace('&', '&amp;'),
+        department: leverPosting.meta.category_department,
+      };
+
+      if (!containsObjectInArray(team, teams)) {
+        teams.push(team);
+      }
+    }
+  }
+
+  return teams;
+}
+
 async function updatePosts(leverPostings, wpPostings) {
-  console.log(`Analisando as vagas cadastradas ...\n`);
+  console.log('Analisando as vagas cadastradas ...\n');
+
   const wpPostingsIDs = [];
   const leverPostingsIDs = [];
   const createPostsRepo = [];
@@ -160,7 +309,7 @@ async function updatePosts(leverPostings, wpPostings) {
 
   for (const wpPosting of wpPostings) {
     for (const leverPosting of leverPostings) {
-      //updating
+      // updating
       if (
         wpPosting.acf.posting_id &&
         wpPosting.acf.posting_id === leverPosting.meta.posting_id
@@ -171,87 +320,245 @@ async function updatePosts(leverPostings, wpPostings) {
           leverPosting.meta.updated_at > wpPosting.acf.updated_at
         ) {
           hasUpdate = true;
-          await wp.postings().id(wpPosting.id).update(leverPosting);
-          console.log(
-            `Atualizando vaga: "${wpPosting.title.rendered.replace(
-              "&#8211;",
-              "-"
-            )}"`
-          );
+
+          await wp.postings()
+            .id(wpPosting.id)
+            .update(leverPosting);
+
+            console.log(`Atualizando vaga: "${
+              wpPosting.title.rendered.replace('&#8211;', '-')
+            }"`);
         }
       }
 
-      //creating step 1
+      // creating step 1
       if (!wpPostingsIDs.includes(leverPosting.meta.posting_id)) {
         createPostsRepo.push(leverPosting);
         wpPostingsIDs.push(leverPosting.meta.posting_id);
       }
     }
 
-    //removing
+    // removing
     if (wpPosting && wpPosting.acf) {
       if (
         !wpPosting.acf.posting_id ||
         !leverPostingsIDs.includes(wpPosting.acf.posting_id)
       ) {
         hasUpdate = true;
-        await wp
-          .postings()
+
+        await wp.postings()
           .id(wpPosting.id)
           .delete()
           .catch((err) => console.log(err));
-  
-        console.log(
-          `Removendo vaga: "${wpPosting.title.rendered.replace("&#8211;", "-")}"`
-        );
+
+        console.log(`Removendo vaga: "${
+          wpPosting.title.rendered.replace('&#8211;', '-')
+        }"`);
       }
     }
   }
 
-  //creating step 2
+  // creating step 2
   if (createPostsRepo.length > 0) {
     for (const newPost of createPostsRepo) {
       hasUpdate = true;
+
       await wp.postings().create(newPost);
       await sleep(200);
+
       console.log(`Criando vaga: "${newPost.title}"`);
     }
   } else if (wpPostings.length === 0) {
     for (const newPost of leverPostings) {
       hasUpdate = true;
+
       await wp.postings().create(newPost);
       await sleep(200);
+
       console.log(`Criando vaga: "${newPost.title}"`);
     }
   }
 
   if (hasUpdate) {
-    console.log(`\nVagas atualizadas com sucesso!\n`);
+    console.log('\nVagas atualizadas com sucesso!\n');
   } else {
-    console.log(`Nenhuma vaga foi atualizada.\n`);
+    console.log('Nenhuma vaga foi atualizada.\n');
+  }
+}
+
+async function updateCategories(
+  leverDepartments,
+  leverLocations,
+  leverTeams,
+) {
+  // Departaments
+  console.log('Analisando os departamentos cadastrados ...\n');
+
+  wpCategories = await getWpCategories();
+
+  const createDepartmentRepositore = [];
+  const parentDepartment = wpCategories.find((wC) => wC.name === 'Departaments');
+  let hasDepartmentUpdate = false;
+
+  if (parentDepartment) {
+    const wpDepartments = wpCategories.filter((wC) => (
+      wC.parent === parentDepartment.id
+    ));
+
+    for (const leverDepartment of leverDepartments) {
+      const wpLocation = wpDepartments.find((wD) => wD.name === leverDepartment);
+
+      if (!wpLocation) {
+        const newDepartment = {
+          name: leverDepartment,
+          parent: parentDepartment.id,
+        };
+
+        createDepartmentRepositore.push(newDepartment);
+      }
+    }
+  }
+
+  if (createDepartmentRepositore.length) {
+    for (const newDepartment of createDepartmentRepositore) {
+      hasDepartmentUpdate = true;
+
+      await wp.categories().create(newDepartment);
+      await sleep(200);
+
+      console.log(`Criando Departamento: "${newDepartment.name}"`);
+    }
+  }
+
+  if (hasDepartmentUpdate) {
+    console.log('Departamentos atualizados com sucesso!\n');
+  } else {
+    console.log('Nenhuma Departamento foi atualizado.\n');
+  }
+
+  // Locations
+  console.log('Analisando as localizações cadastradas ...\n');
+
+  wpCategories = await getWpCategories();
+
+  const createLocationRepositore = [];
+  const parentLocation = wpCategories.find((wC) => wC.name === 'Locations');
+  let hasLocationUpdate = false;
+
+  if (parentLocation) {
+    const wpLocations = wpCategories.filter((wC) => wC.parent === parentLocation.id);
+
+    for (const leverLocation of leverLocations) {
+      const wpLocation = wpLocations.find((wL) => wL.name === leverLocation);
+
+      if (!wpLocation) {
+        const newLocation = {
+          name: leverLocation,
+          parent: parentLocation.id,
+        };
+
+        createLocationRepositore.push(newLocation);
+      }
+    }
+  }
+
+  if (createLocationRepositore.length) {
+    for (const newLocation of createLocationRepositore) {
+      hasLocationUpdate = true;
+
+      await wp.categories().create(newLocation);
+      await sleep(200);
+
+      console.log(`Criando Localização: "${newLocation.name}"`);
+    }
+  }
+
+  if (hasLocationUpdate) {
+    console.log('\nLocalizações atualizadas com sucesso!\n');
+  } else {
+    console.log('Nenhuma Localização foi atualizada.\n');
+  }
+
+  // Teams
+  console.log('Analisando os times cadastrados ...\n');
+
+  wpCategories = await getWpCategories();
+
+  const createTeamsRepositore = [];
+  let hasTeamUpdate = false;
+
+  if (parentDepartment) {
+    for (const leverTeam of leverTeams) {
+      const parentTeam = wpCategories.find((wC) => (
+        wC.name === leverTeam.department &&
+        wC.parent === parentDepartment.id
+      ));
+  
+      if (parentTeam && parentTeam.id) {
+        const wpTeam = wpCategories.find((wC) => (
+          wC.name === leverTeam.name &&
+          wC.parent === parentTeam.id
+        ));
+  
+        if (!wpTeam) {
+          const newTeam = {
+            name: leverTeam.name,
+            parent: parentTeam.id,
+          };
+  
+          createTeamsRepositore.push(newTeam);
+        }
+      }
+    }
+  }
+
+  if (createTeamsRepositore.length) {
+    for (const newTeam of createTeamsRepositore) {
+      hasTeamUpdate = true;
+
+      await wp.categories().create(newTeam);
+      await sleep(200);
+
+      console.log(`Criando Time: "${newTeam.name}"`);
+    }
+  }
+
+  if (hasTeamUpdate) {
+    console.log('\nTimes atualizados com sucesso!\n');
+  } else {
+    console.log('Nenhum Time foi atualizado.\n');
   }
 }
 
 async function applyJob() {
   if (!USER) {
     console.log('\nProcesso interrompido! export WP_USER=\n');
+
     return;
   }
 
   if (!TOKEN) {
     console.log('\nProcesso interrompido! export WP_TOKEN=\n');
+
     return;
   }
 
   if (!LEVER_API_TOKEN) {
     console.log('\nProcesso interrompido! export LEVER_API_TOKEN=\n');
+
     return;
   }
 
   const wpPostings = await getPosts();
   const leverPostings = await getLeverData();
-  await updatePosts(leverPostings, wpPostings);
-  console.log(`Processo concluído com sucesso!\n`);
+  const leverLocations = await getLeverLocations(leverPostings);
+  const leverDepartments = await getLeverDepartments(leverPostings);
+  const leverTeams = await getLeverTeams(leverPostings);
+
+  await updateCategories(leverDepartments, leverLocations, leverTeams);
+  // await updatePosts(leverPostings, wpPostings);
+
+  console.log('Processo concluído com sucesso!\n');
 }
 
 applyJob();
