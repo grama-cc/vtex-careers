@@ -3,7 +3,7 @@ const fetch = require("node-fetch");
 const base64 = require("base-64");
 
 
-const NODE_ENV = process.env.NODE_ENV;
+const NODE_ENV = process.env.NODE_ENV || 'development';
 const URL = `https://careers-${NODE_ENV ? 'stg' : 'vtex'}.mmg.vfg.mybluehost.me/wp-json`;
 const USER = process.env.WP_USER;
 const TOKEN = process.env.WP_TOKEN;
@@ -19,6 +19,7 @@ console.log(URL);
 
 wp.postings = wp.registerRoute('wp/v2', '/postings/(?P<id>)');
 wp.categories = wp.registerRoute('wp/v2', '/categories/(?P<id>)');
+wp.fromTo = wp.registerRoute('acf/v2', '/options');
 
 function compareArrays(a, b) {
   if (a.length !== b.length) {
@@ -304,7 +305,60 @@ async function getLeverTeams(leverPostings) {
   return teams;
 }
 
-async function updatePosts(leverPostings, wpPostings, wpCategories) {
+
+
+
+
+
+
+
+
+async function getFromTo() {
+  console.log('Carregando lista de "de/para" ...');
+
+  let fromTo = null;
+  const next = async (x) => {
+    if (x && x.acf) {
+      fromTo = x.acf;
+    }
+  };
+
+  await wp.fromTo().then(next).catch(next);
+  await sleep(200);
+
+  console.log('Lista de "de/para" carregados com sucesso!\n');
+
+  return fromTo;
+}
+
+
+
+
+
+
+
+
+
+
+function fixCategories(from, to, parentId, categories) {
+  const currentCategory = categories.find(
+    (wC) => wC.name === from && wC.parent === parentId,
+  );
+
+  if (currentCategory) {
+    currentCategory.name = to;
+    return currentCategory;
+  }
+
+  return null;
+}
+
+async function updatePosts(
+  leverPostings,
+  wpPostings,
+  wpCategories,
+  fromToLocations,
+) {
   console.log('Analisando as vagas cadastradas ...\n');
 
   const wpPostingsIDs = [];
@@ -338,10 +392,27 @@ async function updatePosts(leverPostings, wpPostings, wpCategories) {
   
       if (postLocations && postLocations.length) {
         for (const postLocation of postLocations) {
-          const currentPostLocation = wpCategories.find((wC) => (
-            wC.name === postLocation && wC.parent === locationsParent.id
-          ));
-  
+
+          // Verifica o de para
+          const fromToLocation = fromToLocations.find(
+            (fTL) => fTL.locations_from === postLocation,
+          );
+          let currentPostLocation = null;
+
+          if (fromToLocation && fromToLocation.locations_from === postLocation) {
+            // Se tiver, subistitui
+            currentPostLocation = wpCategories.find((wC) => (
+              wC.name === fromToLocation.locations_to &&
+              wC.parent === locationsParent.id
+            ));
+          } else {
+            // Se não tiver, usa o do lever
+            currentPostLocation = wpCategories.find((wC) => (
+              wC.name === postLocation &&
+              wC.parent === locationsParent.id
+            ));
+          }
+
           if (currentPostLocation) {
             postCategories.push(currentPostLocation.id);
           }
@@ -470,6 +541,7 @@ async function updateCategories(
   leverDepartments,
   leverLocations,
   leverTeams,
+  fromToLocations
 ) {
   wpCategories = await getWpCategories();
 
@@ -529,15 +601,41 @@ async function updateCategories(
     const wpLocations = wpCategories.filter((wC) => wC.parent === parentLocation.id);
 
     for (const leverLocation of leverLocations) {
+      let hasLocationFix = false;
+      let newLocationName = leverLocation;
+
+      for (const fromToLocation of fromToLocations) {
+        if (
+          fromToLocation &&
+          fromToLocation.locations_from &&
+          fromToLocation.locations_from === leverLocation
+        ) {
+          newLocationName = fromToLocation.locations_to;
+          hasLocationFix = true;
+        }
+      }
+
       const wpLocation = wpLocations.find((wL) => wL.name === leverLocation);
+      const newWpLocation = wpLocations.find((wL) => wL.name === newLocationName);
 
-      if (!wpLocation) {
-        const newLocation = {
-          name: leverLocation,
+      if (hasLocationFix && wpLocation && !newWpLocation) {
+        hasLocationUpdate = true;
+
+        await wp.categories().id(wpLocation.id).update({
+          name: newLocationName,
+          slug: `${newLocationName}-${wpLocation.id}`
+        });
+        await sleep(200);
+
+        console.log(
+          '\x1b[36m%s\x1b[0m',
+          `Atualizando localização: de "${leverLocation}" para "${newLocationName}"`,
+        );
+      } else if (!wpLocation && !newWpLocation) {
+        createLocationRepositore.push({
+          name: newLocationName,
           parent: parentLocation.id,
-        };
-
-        createLocationRepositore.push(newLocation);
+        });
       }
     }
   }
@@ -546,7 +644,7 @@ async function updateCategories(
     for (const newLocation of createLocationRepositore) {
       hasLocationUpdate = true;
 
-      await wp.categories().create(newLocation);
+      await wp.categories().create(newLocation).catch(err => console.log(JSON.stringify(err)));
       await sleep(200);
 
       console.log(`Criando Localização: "${newLocation.name}"`);
@@ -638,13 +736,20 @@ async function applyJob() {
   const leverLocations = await getLeverLocations(leverPostings);
   const leverDepartments = await getLeverDepartments(leverPostings);
   const leverTeams = await getLeverTeams(leverPostings);
+  const fromTo = await getFromTo();
   const wpCategories = await updateCategories(
     leverDepartments,
     leverLocations,
     leverTeams,
+    fromTo.locations || [],
   );
-  
-  await updatePosts(leverPostings, wpPostings, wpCategories);
+
+  await updatePosts(
+    leverPostings,
+    wpPostings,
+    wpCategories,
+    fromTo.locations || [],
+  );
 
   console.log('Processo concluído com sucesso!\n');
 }
