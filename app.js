@@ -135,7 +135,7 @@ async function getLeverData() {
       slug: `${posting.text}-${posting.categories.location}`,
       meta: {
         posting_name: posting.text,
-        category_commitment: posting.categories.commitment,
+        category_commitment: posting.categories.commitment || '',
         category_department: posting.categories.department,
         category_location: posting.categories.location,
         category_team: posting.categories.team,
@@ -305,13 +305,26 @@ async function getLeverTeams(leverPostings) {
   return teams;
 }
 
+async function getLeverWorkTypes(leverPostings) {
+  console.log('Carregando tipos de vagas dos posts no Lever ...\n');
 
+  const workTypes = [];
 
+  for (const leverPosting of leverPostings) {
+    if (
+      leverPosting.meta.category_commitment &&
+      leverPosting.meta.category_commitment.length
+    ) {
+      const workType = leverPosting.meta.category_commitment.replace('&', '&amp;');
 
+      if (!workTypes.includes(workType)) {
+        workTypes.push(workType);
+      }
+    }
+  }
 
-
-
-
+  return workTypes;
+}
 
 async function getFromTo() {
   console.log('Carregando lista de "de/para" ...');
@@ -329,28 +342,6 @@ async function getFromTo() {
   console.log('Lista de "de/para" carregados com sucesso!\n');
 
   return fromTo;
-}
-
-
-
-
-
-
-
-
-
-
-function fixCategories(from, to, parentId, categories) {
-  const currentCategory = categories.find(
-    (wC) => wC.name === from && wC.parent === parentId,
-  );
-
-  if (currentCategory) {
-    currentCategory.name = to;
-    return currentCategory;
-  }
-
-  return null;
 }
 
 async function updatePosts(
@@ -381,6 +372,9 @@ async function updatePosts(
   );
   const locationsParent = wpCategories.find(
     (wC) => wC.name === 'Locations' && wC.parent === 0,
+  );
+  const workTypesParent = wpCategories.find(
+    (wC) => wC.name === 'Work Types' && wC.parent === 0,
   );
 
   for (const wpPosting of wpPostings) {
@@ -437,6 +431,20 @@ async function updatePosts(
         if (currentPostTeam && currentPostTeam.id) {
           postCategories.push(currentPostTeam.id);
         }
+      }
+
+      // Work type category
+      const currentPostWorkType = wpCategories.find((wC) => (
+        wC.name === leverPosting.meta.category_commitment &&
+        wC.parent === workTypesParent.id
+      ));
+
+      if (
+        currentPostWorkType &&
+        currentPostWorkType.id &&
+        !postCategories.includes(currentPostWorkType.id)
+      ) {
+        postCategories.push(currentPostWorkType.id);
       }
 
       let hasCategoriesUpdate = false;
@@ -541,6 +549,7 @@ async function updateCategories(
   leverDepartments,
   leverLocations,
   leverTeams,
+  leverWorkTypes,
   fromToLocations
 ) {
   wpCategories = await getWpCategories();
@@ -588,6 +597,51 @@ async function updateCategories(
     wpCategories = await getWpCategories();
   } else {
     console.log('Nenhuma departamento foi atualizado.\n');
+  }
+
+  // Work Types
+  console.log('Analisando os tipos de vagas cadastrados ...\n');
+
+  const createWorkTypesRepositore = [];
+  const parentWorkType = wpCategories.find((wC) => wC.name === 'Work Types');
+  let hasWorkTypeUpdate = false;
+
+  if (parentWorkType) {
+    const wpWorkTypes = wpCategories.filter((wC) => (
+      wC.parent === parentWorkType.id
+    ));
+
+    for (const leverWorkType of leverWorkTypes) {
+      const wpWorkType = wpWorkTypes.find((wD) => wD.name === leverWorkType);
+
+      if (!wpWorkType) {
+        const newWorkTypes = {
+          name: leverWorkType,
+          parent: parentWorkType.id,
+        };
+
+        createWorkTypesRepositore.push(newWorkTypes);
+      }
+    }
+  }
+
+  if (createWorkTypesRepositore.length) {
+    for (const newWorkType of createWorkTypesRepositore) {
+      hasWorkTypeUpdate = true;
+
+      await wp.categories().create(newWorkType);
+      await sleep(200);
+
+      console.log(`Criando Tipo de Vaga: "${newWorkType.name}"`);
+    }
+  }
+
+  if (hasWorkTypeUpdate) {
+    console.log('Tipos de vagas atualizados com sucesso!\n');
+
+    wpCategories = await getWpCategories();
+  } else {
+    console.log('Nenhuma tipo de vaga foi atualizado.\n');
   }
 
   // Locations
@@ -736,11 +790,13 @@ async function applyJob() {
   const leverLocations = await getLeverLocations(leverPostings);
   const leverDepartments = await getLeverDepartments(leverPostings);
   const leverTeams = await getLeverTeams(leverPostings);
+  const leverWorkTypes = await getLeverWorkTypes(leverPostings);
   const fromTo = await getFromTo();
   const wpCategories = await updateCategories(
     leverDepartments,
     leverLocations,
     leverTeams,
+    leverWorkTypes,
     fromTo.locations || [],
   );
 
