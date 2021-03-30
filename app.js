@@ -157,7 +157,12 @@ async function getLeverData() {
     wp_postings.push(wp_posting);
   }
 
-  console.log(`${wp_postings.length} vagas carregadas com sucesso!\n`);
+  console.log(
+    '\x1b[32m%s\x1b[0m',
+    `... ${wp_postings.length} vagas carregadas com sucesso!`,
+  );
+
+  console.log(``);
 
   return wp_postings;
 }
@@ -194,7 +199,10 @@ async function getPosts() {
     .catch(next);
   await sleep(200);
 
-  console.log(`${posts.length} vagas carregadas com sucesso!\n`);
+  console.log(
+    '\x1b[32m%s\x1b[0m',
+    `... ${posts.length} vagas carregadas com sucesso!\n`,
+  );
 
   return posts;
 }
@@ -231,13 +239,16 @@ async function getWpCategories() {
     .catch(next);
   await sleep(200);
 
-  console.log(`${categories.length} categorias carregadas com sucesso!\n`);
+  console.log(
+    '\x1b[32m%s\x1b[0m',
+    `... ${categories.length} categorias carregadas com sucesso!\n`,
+  );
 
   return categories;
 }
 
 async function getLeverLocations(leverPostings) {
-  console.log('Carregando localizações dos posts no Lever ...');
+  console.log('Carregando localizações dos posts do Lever ...');
 
   const locations = [];
 
@@ -255,11 +266,16 @@ async function getLeverLocations(leverPostings) {
     }
   }
 
+  console.log(
+    '\x1b[32m%s\x1b[0m',
+    `... ${locations.length} localizações carregadas com sucesso!\n`,
+  );
+
   return locations;
 }
 
 async function getLeverDepartments(leverPostings) {
-  console.log('Carregando departamentos dos posts no Lever ...');
+  console.log('Carregando departamentos dos posts do Lever ...');
 
   const departments = [];
 
@@ -276,11 +292,16 @@ async function getLeverDepartments(leverPostings) {
     }
   }
 
+  console.log(
+    '\x1b[32m%s\x1b[0m',
+    `... ${departments.length} departamentos carregados com sucesso!\n`,
+  );
+
   return departments;
 }
 
 async function getLeverTeams(leverPostings) {
-  console.log('Carregando times dos posts no Lever ...\n');
+  console.log('Carregando times dos posts do Lever ...');
 
   const teams = [];
 
@@ -302,11 +323,16 @@ async function getLeverTeams(leverPostings) {
     }
   }
 
+  console.log(
+    '\x1b[32m%s\x1b[0m',
+    `... ${teams.length} times carregados com sucesso!\n`,
+  );
+
   return teams;
 }
 
 async function getLeverWorkTypes(leverPostings) {
-  console.log('Carregando tipos de vagas dos posts no Lever ...\n');
+  console.log('Carregando senioridades dos posts do Lever ...');
 
   const workTypes = [];
 
@@ -322,6 +348,11 @@ async function getLeverWorkTypes(leverPostings) {
       }
     }
   }
+
+  console.log(
+    '\x1b[32m%s\x1b[0m',
+    `... ${workTypes.length} senioridades carregadas com sucesso!\n`,
+  );
 
   return workTypes;
 }
@@ -339,7 +370,10 @@ async function getFromTo() {
   await wp.fromTo().then(next).catch(next);
   await sleep(200);
 
-  console.log('Lista de "de/para" carregados com sucesso!\n');
+  console.log(
+    '\x1b[32m%s\x1b[0m',
+    '... lista de "de/para" carregados com sucesso!\n',
+  );
 
   return fromTo;
 }
@@ -525,7 +559,10 @@ async function updatePosts(
       await wp.postings().create(newPost);
       await sleep(200);
 
-      console.log('\x1b[32m%s\x1b[0m', `Criando vaga: "${newPost.title}"`);
+      console.log(
+        '\x1b[32m%s\x1b[0m',
+        `Criando vaga: "${newPost.title}"`,
+      );
     }
   } else if (wpPostings.length === 0) {
     for (const newPost of leverPostings) {
@@ -534,14 +571,23 @@ async function updatePosts(
       await wp.postings().create(newPost);
       await sleep(200);
 
-      console.log(`Criando vaga: "${newPost.title}"`);
+      console.log(
+        '\x1b[32m%s\x1b[0m',
+        `Criando vaga: "${newPost.title}"`,
+      );
     }
   }
 
   if (hasUpdate) {
-    console.log('\nVagas atualizadas com sucesso!\n');
+    console.log(
+      '\x1b[32m%s\x1b[0m',
+      '\nVagas atualizadas com sucesso!\n',
+    );
   } else {
-    console.log('Nenhuma vaga foi atualizada.\n');
+    console.log(
+      '\x1b[35m%s\x1b[0m',
+      'Nenhuma vaga foi atualizada.\n',
+    );
   }
 }
 
@@ -587,20 +633,29 @@ async function updateCategories(
       await wp.categories().create(newDepartment);
       await sleep(200);
 
-      console.log(`Criando Departamento: "${newDepartment.name}"`);
+      console.log(
+        '\x1b[32m%s\x1b[0m',
+        `Criando departamento: "${newDepartment.name}"`,
+      );
     }
   }
 
   if (hasDepartmentUpdate) {
-    console.log('Departamentos atualizados com sucesso!\n');
+    console.log(
+      '\x1b[32m%s\x1b[0m',
+      '\nDepartamentos atualizados com sucesso!\n',
+    );
 
     wpCategories = await getWpCategories();
   } else {
-    console.log('Nenhuma departamento foi atualizado.\n');
+    console.log(
+      '\x1b[35m%s\x1b[0m',
+      'Nenhum departamento foi atualizado.\n',
+    );
   }
 
   // Work Types
-  console.log('Analisando os tipos de vagas cadastrados ...\n');
+  console.log('Analisando as senioridades cadastradas ...\n');
 
   const createWorkTypesRepositore = [];
   const parentWorkType = wpCategories.find((wC) => wC.name === 'Work Types');
@@ -632,16 +687,25 @@ async function updateCategories(
       await wp.categories().create(newWorkType);
       await sleep(200);
 
-      console.log(`Criando Tipo de Vaga: "${newWorkType.name}"`);
+      console.log(
+        '\x1b[32m%s\x1b[0m',
+        `Criando senioridade: "${newWorkType.name}"`,
+      );
     }
   }
 
   if (hasWorkTypeUpdate) {
-    console.log('Tipos de vagas atualizados com sucesso!\n');
+    console.log(
+      '\x1b[32m%s\x1b[0m',
+      'Senioridades atualizadas com sucesso!\n',
+    );
 
     wpCategories = await getWpCategories();
   } else {
-    console.log('Nenhuma tipo de vaga foi atualizado.\n');
+    console.log(
+      '\x1b[35m%s\x1b[0m',
+      'Nenhuma senioridade foi atualizado.\n',
+    );
   }
 
   // Locations
@@ -677,7 +741,7 @@ async function updateCategories(
 
         await wp.categories().id(wpLocation.id).update({
           name: newLocationName,
-          slug: `${newLocationName}-${wpLocation.id}`
+          slug: `${newLocationName}-${parentLocation.name}`
         });
         await sleep(200);
 
@@ -701,16 +765,25 @@ async function updateCategories(
       await wp.categories().create(newLocation).catch(err => console.log(JSON.stringify(err)));
       await sleep(200);
 
-      console.log(`Criando Localização: "${newLocation.name}"`);
+      console.log(
+        '\x1b[32m%s\x1b[0m',
+        `Criando localização: "${newLocation.name}"`,
+      );
     }
   }
 
   if (hasLocationUpdate) {
-    console.log('\nLocalizações atualizadas com sucesso!\n');
+    console.log(
+      '\x1b[32m%s\x1b[0m',
+      '\nLocalizações atualizadas com sucesso!\n',
+    );
 
     wpCategories = await getWpCategories();
   } else {
-    console.log('Nenhuma localização foi atualizada.\n');
+    console.log(
+      '\x1b[35m%s\x1b[0m',
+      'Nenhuma localização foi atualizada.\n',
+    );
   }
 
   // Teams
@@ -751,16 +824,25 @@ async function updateCategories(
       await wp.categories().create(newTeam);
       await sleep(200);
 
-      console.log(`Criando Time: "${newTeam.name}"`);
+      console.log(
+        '\x1b[32m%s\x1b[0m',
+        `Criando time: "${newTeam.name}"`
+      );
     }
   }
 
   if (hasTeamUpdate) {
-    console.log('\nTimes atualizados com sucesso!\n');
+    console.log(
+      '\x1b[32m%s\x1b[0m',
+      '\nTimes atualizados com sucesso!\n',
+    );
 
     wpCategories = await getWpCategories();
   } else {
-    console.log('Nenhum time foi atualizado.\n');
+    console.log(
+      '\x1b[35m%s\x1b[0m',
+      'Nenhum time foi atualizado.\n',
+    );
   }
 
   return wpCategories;
