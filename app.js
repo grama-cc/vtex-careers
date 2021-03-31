@@ -2,7 +2,6 @@ const WPAPI = require("wpapi");
 const fetch = require("node-fetch");
 const base64 = require("base-64");
 
-
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const URL = `https://careers-${NODE_ENV ? 'stg' : 'vtex'}.mmg.vfg.mybluehost.me/wp-json`;
 const USER = process.env.WP_USER;
@@ -193,7 +192,7 @@ async function getLeverData() {
 }
 
 async function getPosts() {
-  console.log('\nCarregando vagas cadastradas no Wordpress ...');
+  console.log('Carregando vagas cadastradas no Wordpress ...');
 
   const posts = [];
   const next = async (x) => {
@@ -408,6 +407,8 @@ async function updatePosts(
   wpPostings,
   wpCategories,
   fromToLocations,
+  fromToDepartments,
+  fromToTeams,
 ) {
   console.log('Analisando as vagas cadastradas ...\n');
 
@@ -500,21 +501,50 @@ async function updatePosts(
       }
 
       // Department category
-      const currentPostDepartment = getWpCategory(
+      const postDepartment = leverPosting.meta.category_department;
+      let currentPostDepartment = getWpCategory(
         wpCategories,
-        leverPosting.meta.category_department,
+        postDepartment,
         departamentsParent.id,
       );
+      let fromToDepartment = null;
+
+      if (postDepartment && postDepartment.length) {
+        fromToDepartment = fromToDepartments.find((fTD) => (
+          fTD.departments_from.toLowerCase() === postDepartment.toLowerCase()
+        ));
+      }
+
+      if (fromToDepartment) {
+        currentPostDepartment = getWpCategory(
+          wpCategories,
+          fromToDepartment.departments_to,
+          departamentsParent.id,
+        );
+      }
 
       if (currentPostDepartment && currentPostDepartment.id) {
         postCategories.push(currentPostDepartment.id);
 
         // Team category
-        const currentPostTeam = getWpCategory(
-          wpCategories,
-          leverPosting.meta.category_team,
-          currentPostDepartment.id,
-        );
+        const fromToTeam = fromToTeams.find((fTT) => (
+          fTT.teams_from.toLowerCase() === leverPosting.meta.category_team.toLowerCase()
+        ));
+        let currentPostTeam = null;
+
+        if (fromToTeam) {
+          currentPostTeam = getWpCategory(
+            wpCategories,
+            fromToTeam.teams_to,
+            currentPostDepartment.id,
+          );
+        } else {
+          currentPostTeam = getWpCategory(
+            wpCategories,
+            leverPosting.meta.category_team,
+            currentPostDepartment.id,
+          );
+        }
 
         if (currentPostTeam && currentPostTeam.id) {
           postCategories.push(currentPostTeam.id);
@@ -650,7 +680,9 @@ async function updateCategories(
   leverLocations,
   leverTeams,
   leverWorkTypes,
-  fromToLocations
+  fromToLocations,
+  fromToDepartments,
+  fromToTeams,
 ) {
   wpCategories = await getWpCategories();
 
@@ -774,15 +806,47 @@ async function updateCategories(
     ));
 
     for (const leverDepartment of leverDepartments) {
-      const wpLocation = getWpCategory(wpDepartments, leverDepartment);
+      const currentFromToDepartment = fromToDepartments.find(
+        (fTD) => fTD.departments_from.toLowerCase() === leverDepartment.toLowerCase(),
+      );
+      const wpDepartment = getWpCategory(wpDepartments, leverDepartment);
 
-      if (!wpLocation) {
-        const newDepartment = {
-          name: leverDepartment,
-          parent: parentDepartment.id,
-        };
+      if (currentFromToDepartment) {
+        const newWpDepartment = getWpCategory(wpDepartments, currentFromToDepartment.departments_to);
 
-        createDepartmentRepositore.push(newDepartment);
+        if (wpDepartment && !newWpDepartment) {
+          hasDepartmentUpdate = true;
+
+          await wp.categories().id(wpDepartment.id).update({
+            name: currentFromToDepartment.departments_to,
+            slug: `${currentFromToDepartment.departments_to}-department`,
+          })
+            .then(() => console.log(
+              '\x1b[36m%s\x1b[0m',
+              `Atualizando departamento: de "${
+                currentFromToDepartment.departments_from
+              }" para "${currentFromToDepartment.departments_to}"`,
+            ))
+            .catch((err) => console.log(
+              '\x1b[31m%s\x1b[0m',
+              `\nErro ao atulizar departamento: de ${
+                currentFromToDepartment.departments_from
+              } para ${currentFromToDepartment.departments_to} no Wordpress\n`,
+            ));
+          await sleep(200);
+        } else if (!newWpDepartment) {
+          createDepartmentRepositore.push({
+            name: currentFromToDepartment.departments_to,
+            parent: parentDepartment.id,
+          });
+        }
+      } else {
+        if (!wpDepartment) {
+          createDepartmentRepositore.push({
+            name: leverDepartment,
+            parent: parentDepartment.id,
+          });
+        }
       }
     }
   }
@@ -815,6 +879,95 @@ async function updateCategories(
     console.log(
       '\x1b[35m%s\x1b[0m',
       'Nenhum departamento foi atualizado.\n',
+    );
+  }
+
+  // Teams
+  console.log('Analisando os times cadastrados ...\n');
+
+  const createTeamsRepositore = [];
+  let hasTeamUpdate = false;
+
+  if (parentDepartment) {
+    for (const leverTeam of leverTeams) {
+      const currentFromToDepartment = fromToDepartments.find(
+        (fTD) => fTD.departments_from.toLowerCase() === leverTeam.department.toLowerCase(),
+      );
+      let parentTeam = getWpCategory(wpCategories, leverTeam.department, parentDepartment.id);
+
+      if (currentFromToDepartment) {
+        parentTeam = getWpCategory(
+          wpCategories,
+          currentFromToDepartment.departments_to,
+          parentDepartment.id,
+        );
+      }
+
+      if (parentTeam && parentTeam.id) {
+        const wpTeam = getWpCategory(wpCategories, leverTeam.name, parentTeam.id);
+        const currentFromToTeam = fromToTeams.find(
+          (fTT) => fTT.teams_from.toLowerCase() === leverTeam.name.toLowerCase(),
+        );
+
+        if (currentFromToTeam) {
+          const newWpTeam = getWpCategory(wpCategories, currentFromToTeam.teams_to, parentTeam.id);
+
+          if (wpTeam && !newWpTeam) {
+            await wp.categories().id(wpTeam.id).update({
+              name: currentFromToTeam.teams_to,
+              slug: `${currentFromToTeam.teams_to}-team`,
+            })
+              .then(() => console.log(
+                '\x1b[36m%s\x1b[0m',
+                `Atualizando time: de "${currentFromToTeam.teams_from}" para "${
+                  currentFromToTeam.teams_to
+                }"`,
+              ))
+              .catch((err) => console.log(
+                '\x1b[31m%s\x1b[0m',
+                `\nErro ao atulizar time: de ${currentFromToTeam.teams_from} para ${
+                  currentFromToTeam.teams_to
+                } no Wordpress\n`,
+              ));
+            await sleep(200);
+          } else if (!newWpTeam) {
+            createTeamsRepositore.push({
+              name: currentFromToTeam.teams_to,
+              parent: parentTeam.id,
+            });
+          }
+        } else if (!wpTeam) {
+          createTeamsRepositore.push({
+            name: leverTeam.name,
+            parent: parentTeam.id,
+          });
+        }
+      }
+    }
+  }
+
+  if (createTeamsRepositore.length) {
+    for (const newTeam of createTeamsRepositore) {
+      hasTeamUpdate = true;
+
+      await wp.categories().create(newTeam)
+        .then(() => console.log('\x1b[32m%s\x1b[0m', `Criando time: "${newTeam.name}"`))
+        .catch(() => console.log('\x1b[31m%s\x1b[0m', `Erro ao criar time: "${newTeam.name}"`));
+      await sleep(200);
+    }
+  }
+
+  if (hasTeamUpdate) {
+    console.log(
+      '\x1b[32m%s\x1b[0m',
+      '\nTimes atualizados com sucesso!\n',
+    );
+
+    wpCategories = await getWpCategories();
+  } else {
+    console.log(
+      '\x1b[35m%s\x1b[0m',
+      'Nenhum time foi atualizado.\n',
     );
   }
 
@@ -872,56 +1025,6 @@ async function updateCategories(
     );
   }
 
-  // Teams
-  console.log('Analisando os times cadastrados ...\n');
-
-  const createTeamsRepositore = [];
-  let hasTeamUpdate = false;
-
-  if (parentDepartment) {
-    for (const leverTeam of leverTeams) {
-      const parentTeam = getWpCategory(wpCategories, leverTeam.department, parentDepartment.id);
-  
-      if (parentTeam && parentTeam.id) {
-        const wpTeam = getWpCategory(wpCategories, leverTeam.name, parentTeam.id);
-  
-        if (!wpTeam) {
-          const newTeam = {
-            name: leverTeam.name,
-            parent: parentTeam.id,
-          };
-  
-          createTeamsRepositore.push(newTeam);
-        }
-      }
-    }
-  }
-
-  if (createTeamsRepositore.length) {
-    for (const newTeam of createTeamsRepositore) {
-      hasTeamUpdate = true;
-
-      await wp.categories().create(newTeam)
-        .then(() => console.log('\x1b[32m%s\x1b[0m', `Criando time: "${newTeam.name}"`))
-        .catch(() => console.log('\x1b[31m%s\x1b[0m', `Erro ao criar time: "${newTeam.name}"`));
-      await sleep(200);
-    }
-  }
-
-  if (hasTeamUpdate) {
-    console.log(
-      '\x1b[32m%s\x1b[0m',
-      '\nTimes atualizados com sucesso!\n',
-    );
-
-    wpCategories = await getWpCategories();
-  } else {
-    console.log(
-      '\x1b[35m%s\x1b[0m',
-      'Nenhum time foi atualizado.\n',
-    );
-  }
-
   return wpCategories;
 }
 
@@ -944,6 +1047,8 @@ async function applyJob() {
     return;
   }
 
+  console.log(`Processo iniciado no ambiente "${NODE_ENV}"!\n`);
+
   const wpPostings = await getPosts();
   const leverPostings = await getLeverData();
   const leverLocations = await getLeverLocations(leverPostings);
@@ -951,19 +1056,27 @@ async function applyJob() {
   const leverTeams = await getLeverTeams(leverPostings);
   const leverWorkTypes = await getLeverWorkTypes(leverPostings);
   const fromTo = await getFromTo();
+  const fromToLocations = fromTo && fromTo.locations ? fromTo.locations : [];
+  const fromToDepartments = fromTo && fromTo.departments ? fromTo.departments : [];
+  const fromToTeams = fromTo && fromTo.teams ? fromTo.teams : [];
+
   const wpCategories = await updateCategories(
     leverDepartments,
     leverLocations,
     leverTeams,
     leverWorkTypes,
-    fromTo.locations || [],
+    fromToLocations,
+    fromToDepartments,
+    fromToTeams,
   );
 
   await updatePosts(
     leverPostings,
     wpPostings,
     wpCategories,
-    fromTo.locations || [],
+    fromToLocations,
+    fromToDepartments,
+    fromToTeams,
   );
 
   console.log('Processo concluído com sucesso!\n');
