@@ -537,7 +537,6 @@ async function updatePosts(
         let currentPostTeam = null;
 
         if (fromToTeam) {
-          hasCategoriesUpdate = true;
           currentPostTeam = getWpCategory(
             wpCategories,
             fromToTeam.teams_to,
