@@ -437,6 +437,10 @@ async function updatePosts(
       const postCategories = [];
       const postLocations = leverPosting.meta.category_location.split(' ou ');
 
+      let hasCategoriesUpdate = false;
+      let fromToDepartment = null;
+      let fromToTeam = null;
+
       // Location category
       if (postLocations && postLocations.length) {
         for (const postLocation of postLocations) {
@@ -508,7 +512,6 @@ async function updatePosts(
         postDepartment,
         departamentsParent.id,
       );
-      let fromToDepartment = null;
 
       if (postDepartment && postDepartment.length) {
         fromToDepartment = fromToDepartments.find((fTD) => (
@@ -528,12 +531,13 @@ async function updatePosts(
         postCategories.push(currentPostDepartment.id);
 
         // Team category
-        const fromToTeam = fromToTeams.find((fTT) => (
+        fromToTeam = fromToTeams.find((fTT) => (
           fTT.teams_from.toLowerCase() === leverPosting.meta.category_team.toLowerCase()
         ));
         let currentPostTeam = null;
 
         if (fromToTeam) {
+          hasCategoriesUpdate = true;
           currentPostTeam = getWpCategory(
             wpCategories,
             fromToTeam.teams_to,
@@ -567,8 +571,6 @@ async function updatePosts(
         postCategories.push(currentPostWorkType.id);
       }
 
-      let hasCategoriesUpdate = false;
-
       // updating
       if (
         wpPosting.acf.posting_id &&
@@ -589,14 +591,28 @@ async function updatePosts(
         ) {
           hasUpdate = true;
 
+          if (fromToDepartment) {
+            wpPosting.meta.category_department = fromToDepartment.departments_to;
+            leverPosting.meta.category_department = fromToDepartment.departments_to;
+          }
+
+          if (fromToTeam) {
+            wpPosting.meta.category_team = fromToTeam.teams_to;
+            leverPosting.meta.category_team = fromToTeam.teams_to;
+          }
+
           await wp.postings().id(wpPosting.id).update(leverPosting)
             .then(() => console.log(
               '\x1b[36m%s\x1b[0m',
-              `Atualizando vaga: "${wpPosting.title.rendered.replace(/&#8211;/g, '-')}"`,
+              `Atualizando vaga: "${
+                wpPosting.title.rendered.replace(/&#8211;/g, '-').replace(/&#038;/g, '&')
+              }"`,
             ))
-            .catch(() => console.log(
+            .catch((error) => console.log(
               '\x1b[31m%s\x1b[0m',
-              `Erro ao atualizar vaga: "${wpPosting.title.rendered.replace(/&#8211;/g, '-')}"`,
+              `Erro ao atualizar vaga: "${
+                wpPosting.title.rendered.replace(/&#8211;/g, '-').replace(/&#038;/g, '&')
+              }"\n${error.code}: ${error.message}`,
             ));
           await sleep(200);
         }
@@ -629,11 +645,11 @@ async function updatePosts(
               wpPosting.title.rendered.replace(/&#8211;/g, '-').replace(/&#038;/g, '&')
             }"`,
           ))
-          .catch(() => console.log(
+          .catch((error) => console.log(
             '\x1b[31m%s\x1b[0m',
             `Erro ao remover vaga: "${
               wpPosting.title.rendered.replace(/&#8211;/g, '-').replace(/&#038;/g, '&')
-            }"`,
+            }"\n${error.code}: ${error.message}`,
           ));
         await sleep(200);
       }
@@ -647,7 +663,10 @@ async function updatePosts(
 
       await wp.postings().create(newPost)
         .then(() => console.log('\x1b[32m%s\x1b[0m', `Criando vaga: "${newPost.title}"`))
-        .catch(() => console.log('\x1b[31m%s\x1b[0m', `Erro ao criar vaga: "${newPost.title}"`));
+        .catch((error) => console.log(
+          '\x1b[31m%s\x1b[0m',
+          `Erro ao criar vaga: "${newPost.title}"\n${error.code}: ${error.message}`,
+        ));
       await sleep(200);
 
       
@@ -658,7 +677,10 @@ async function updatePosts(
 
       await wp.postings().create(newPost)
         .then(() => console.log('\x1b[32m%s\x1b[0m', `Criando vaga: "${newPost.title}"`))
-        .catch(() => console.log('\x1b[31m%s\x1b[0m', `Erro ao criar vaga: "${newPost.title}"`));
+        .catch((error) => console.log(
+          '\x1b[31m%s\x1b[0m',
+          `Erro ao criar vaga: "${newPost.title}"\n${error.code}: ${error.message}`,
+        ));
       await sleep(200);
     }
   }
@@ -736,11 +758,11 @@ async function updateCategories(
                     newLocationName
                   }"`,
                 ))
-                .catch(() => console.log(
+                .catch((error) => console.log(
                   '\x1b[31m%s\x1b[0m',
                   `\nErro ao atulizar localização: de ${leverLocation} para ${
                     newLocationName
-                  } no Wordpress\n`,
+                  }\n${error.code}: ${error.message}\n`,
                 ));
               await sleep(200);
             } else if (!wpLocation && !newWpLocation) {
@@ -771,9 +793,9 @@ async function updateCategories(
           '\x1b[32m%s\x1b[0m',
           `Criando localização: "${newLocation.name}"`,
         ))
-        .catch(() => console.log(
+        .catch((error) => console.log(
           '\x1b[31m%s\x1b[0m',
-          `\nErro ao criar localização: ${newLocation} no Wordpress\n`,
+          `\nErro ao criar localização: "${newLocation}"\n${error.code}: ${error.message}\n`,
         ));
       await sleep(200);
     }
@@ -830,7 +852,9 @@ async function updateCategories(
               '\x1b[31m%s\x1b[0m',
               `\nErro ao atulizar departamento: de ${
                 currentFromToDepartment.departments_from
-              } para ${currentFromToDepartment.departments_to} no Wordpress\n`,
+              } para ${
+                currentFromToDepartment.departments_to
+              }\n${error.code}: ${error.message}\n`,
             ));
           await sleep(200);
         } else if (!newWpDepartment) {
@@ -859,9 +883,9 @@ async function updateCategories(
           '\x1b[32m%s\x1b[0m',
           `Criando departamento: "${newDepartment.name}"`,
         ))
-        .catch(() => console.log(
+        .catch((error) => console.log(
           '\x1b[31m%s\x1b[0m',
-          `Erro ao criar departamento: "${newDepartment.name}"`,
+          `Erro ao criar departamento: "${newDepartment.name}"\n${error.code}: ${error.message}`,
         ));
       await sleep(200);
     }
@@ -921,11 +945,11 @@ async function updateCategories(
                   currentFromToTeam.teams_to
                 }"`,
               ))
-              .catch((err) => console.log(
+              .catch((error) => console.log(
                 '\x1b[31m%s\x1b[0m',
                 `\nErro ao atulizar time: de ${currentFromToTeam.teams_from} para ${
                   currentFromToTeam.teams_to
-                } no Wordpress\n`,
+                }\n${error.code}: ${error.message}\n`,
               ));
             await sleep(200);
           } else if (!newWpTeam) {
@@ -950,7 +974,10 @@ async function updateCategories(
 
       await wp.categories().create(newTeam)
         .then(() => console.log('\x1b[32m%s\x1b[0m', `Criando time: "${newTeam.name}"`))
-        .catch(() => console.log('\x1b[31m%s\x1b[0m', `Erro ao criar time: "${newTeam.name}"`));
+        .catch((error) => console.log(
+          '\x1b[31m%s\x1b[0m',
+          `Erro ao criar time: "${newTeam.name}"\n${error.code}: ${error.message}`
+        ));
       await sleep(200);
     }
   }
@@ -1001,9 +1028,9 @@ async function updateCategories(
 
       await wp.categories().create(newWorkType)
         .then(() => console.log('\x1b[32m%s\x1b[0m', `Criando senioridade: "${newWorkType.name}"`))
-        .catch(() => console.log(
+        .catch((error) => console.log(
           '\x1b[31m%s\x1b[0m',
-          `Erro ao criar senioridade: "${newWorkType.name}"`,
+          `Erro ao criar senioridade: "${newWorkType.name}"\n${error.code}: ${error.message}`,
         ));
       await sleep(200);
     }
