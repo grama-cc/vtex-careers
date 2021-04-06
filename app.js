@@ -2,19 +2,20 @@ const WPAPI = require("wpapi");
 const fetch = require("node-fetch");
 const base64 = require("base-64");
 
-const NODE_ENV = process.env.NODE_ENV || 'development';
-const URL = `https://careers-${NODE_ENV ? 'stg' : 'vtex'}.mmg.vfg.mybluehost.me/wp-json`;
+const URL = 'https://careers-vtex.mmg.vfg.mybluehost.me/wp-json';
 const USER = process.env.WP_USER;
 const TOKEN = process.env.WP_TOKEN;
 const LEVER_API_TOKEN = process.env.LEVER_API_TOKEN;
+
+const AREAS_OF_WORK_CATEGORY_NAME = 'Areas of Work';
+const LOCATIONS_CATEGORY_NAME = 'Locations';
+const SENIORITY_LEVEL_CATEGORY_NAME = 'Seniority Level';
 
 const wp = new WPAPI({
   endpoint: URL,
   username: USER,
   password: TOKEN,
 });
-
-console.log(URL);
 
 wp.postings = wp.registerRoute('wp/v2', '/postings/(?P<id>)');
 wp.categories = wp.registerRoute('wp/v2', '/categories/(?P<id>)');
@@ -192,7 +193,7 @@ async function getLeverData() {
 }
 
 async function getPosts() {
-  console.log('Carregando vagas cadastradas no Wordpress ...');
+  console.log('\nCarregando vagas cadastradas no Wordpress ...');
 
   const posts = [];
   const next = async (x) => {
@@ -427,9 +428,9 @@ async function updatePosts(
     }
   }
 
-  const departamentsParent = getWpCategory(wpCategories, 'Departaments', 0);
-  const locationsParent = getWpCategory(wpCategories, 'Locations', 0);
-  const workTypesParent = getWpCategory(wpCategories, 'Work Types', 0);
+  const departamentsParent = getWpCategory(wpCategories, AREAS_OF_WORK_CATEGORY_NAME, 0);
+  const locationsParent = getWpCategory(wpCategories, LOCATIONS_CATEGORY_NAME, 0);
+  const workTypesParent = getWpCategory(wpCategories, SENIORITY_LEVEL_CATEGORY_NAME, 0);
 
   for (const wpPosting of wpPostings) {
     for (const leverPosting of leverPostings) {
@@ -690,7 +691,7 @@ async function updateCategories(
   console.log('Analisando as localizações cadastradas ...\n');
 
   const createLocationRepositore = [];
-  const parentLocation = getWpCategory(wpCategories, 'Locations', 0);
+  const parentLocation = getWpCategory(wpCategories, LOCATIONS_CATEGORY_NAME, 0);
   let hasLocationUpdate = false;
 
   if (parentLocation && parentLocation.id) {
@@ -728,7 +729,6 @@ async function updateCategories(
 
               await wp.categories().id(wpLocation.id).update({
                 name: newLocationName,
-                slug: `${newLocationName}-location`,
               })
                 .then(() => console.log(
                   '\x1b[36m%s\x1b[0m',
@@ -793,11 +793,11 @@ async function updateCategories(
     );
   }
 
-  // Departaments
+  // Departments
   console.log('Analisando os departamentos cadastrados ...\n');
 
   const createDepartmentRepositore = [];
-  const parentDepartment = getWpCategory(wpCategories, 'Departaments', 0);
+  const parentDepartment = getWpCategory(wpCategories, AREAS_OF_WORK_CATEGORY_NAME, 0);
   let hasDepartmentUpdate = false;
 
   if (parentDepartment) {
@@ -819,7 +819,6 @@ async function updateCategories(
 
           await wp.categories().id(wpDepartment.id).update({
             name: currentFromToDepartment.departments_to,
-            slug: `${currentFromToDepartment.departments_to}-department`,
           })
             .then(() => console.log(
               '\x1b[36m%s\x1b[0m',
@@ -915,7 +914,6 @@ async function updateCategories(
           if (wpTeam && !newWpTeam) {
             await wp.categories().id(wpTeam.id).update({
               name: currentFromToTeam.teams_to,
-              slug: `${currentFromToTeam.teams_to}-team`,
             })
               .then(() => console.log(
                 '\x1b[36m%s\x1b[0m',
@@ -975,7 +973,7 @@ async function updateCategories(
   console.log('Analisando as senioridades cadastradas ...\n');
 
   const createWorkTypesRepositore = [];
-  const parentWorkType = getWpCategory(wpCategories, 'Work Types', 0);
+  const parentWorkType = getWpCategory(wpCategories, SENIORITY_LEVEL_CATEGORY_NAME, 0);
   let hasWorkTypeUpdate = false;
 
   if (parentWorkType) {
@@ -1029,26 +1027,6 @@ async function updateCategories(
 }
 
 async function applyJob() {
-  if (!USER) {
-    console.log('\nProcesso interrompido! export WP_USER=\n');
-
-    return;
-  }
-
-  if (!TOKEN) {
-    console.log('\nProcesso interrompido! export WP_TOKEN=\n');
-
-    return;
-  }
-
-  if (!LEVER_API_TOKEN) {
-    console.log('\nProcesso interrompido! export LEVER_API_TOKEN=\n');
-
-    return;
-  }
-
-  console.log(`Processo iniciado no ambiente "${NODE_ENV}"!\n`);
-
   const wpPostings = await getPosts();
   const leverPostings = await getLeverData();
   const leverLocations = await getLeverLocations(leverPostings);
