@@ -279,7 +279,11 @@ async function getLeverLocations(leverPostings) {
 
   for (const leverPosting of leverPostings) {
     if (leverPosting.meta.category_location.length) {
-      const leverPostingLocations = leverPosting.meta.category_location.split(' ou ');
+      const leverPostingLocations = leverPosting.meta.category_location
+        .replace(/,\s/g, ' ou ')
+        .replace(/\s, /g, ' ou ')
+        .replace(/,/g, ' ou ')
+        .split(' ou ');
 
       for (const location of leverPostingLocations) {
         const currentLocation = location.replace(/&amp;/g, '&');
@@ -575,6 +579,10 @@ async function updatePosts(
         wpPosting.acf.posting_id &&
         wpPosting.acf.posting_id === leverPosting.meta.posting_id
       ) {
+        const postingTitleRendered = wpPosting.title.rendered
+          .replace(/&#8211;/g, '-')
+          .replace(/&#038;/g, '&');
+
         if (!compareArrays(wpPosting.categories, postCategories)) {
           hasCategoriesUpdate = true;
           wpPosting.categories = postCategories;
@@ -603,14 +611,12 @@ async function updatePosts(
           await wp.postings().id(wpPosting.id).update(leverPosting)
             .then(() => console.log(
               '\x1b[36m%s\x1b[0m',
-              `Atualizando vaga: "${
-                wpPosting.title.rendered.replace(/&#8211;/g, '-').replace(/&#038;/g, '&')
-              }"`,
+              `Atualizando vaga: "${postingTitleRendered}"`,
             ))
             .catch((error) => console.log(
               '\x1b[31m%s\x1b[0m',
               `Erro ao atualizar vaga: "${
-                wpPosting.title.rendered.replace(/&#8211;/g, '-').replace(/&#038;/g, '&')
+                postingTitleRendered
               }"\n${error.code}: ${error.message}`,
             ));
           await sleep(200);
@@ -635,19 +641,21 @@ async function updatePosts(
         !wpPosting.acf.posting_id ||
         !leverPostingsIDs.includes(wpPosting.acf.posting_id)
       ) {
+        const postingTitleRendered = wpPosting.title.rendered
+          .replace(/&#8211;/g, '-')
+          .replace(/&#038;/g, '&');
+
         hasUpdate = true;
 
         await wp.postings().id(wpPosting.id).delete()
           .then(() => console.log(
             '\x1b[35m%s\x1b[0m',
-            `Removendo vaga: "${
-              wpPosting.title.rendered.replace(/&#8211;/g, '-').replace(/&#038;/g, '&')
-            }"`,
+            `Removendo vaga: "${postingTitleRendered}"`,
           ))
           .catch((error) => console.log(
             '\x1b[31m%s\x1b[0m',
             `Erro ao remover vaga: "${
-              wpPosting.title.rendered.replace(/&#8211;/g, '-').replace(/&#038;/g, '&')
+              postingTitleRendered
             }"\n${error.code}: ${error.message}`,
           ));
         await sleep(200);
