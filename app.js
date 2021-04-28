@@ -3,7 +3,6 @@ const fetch = require("node-fetch");
 const base64 = require("base-64");
 
 const URL = 'https://careers-vtex.mmg.vfg.mybluehost.me/wp-json';
-const URL = 'https://careers-stg.mmg.vfg.mybluehost.me/wp-json';
 const USER = process.env.WP_USER;
 const TOKEN = process.env.WP_TOKEN;
 const LEVER_API_TOKEN = process.env.LEVER_API_TOKEN;
@@ -183,12 +182,7 @@ async function getLeverData() {
     wp_postings.push(wp_posting);
   }
 
-  console.log(
-    '\x1b[32m%s\x1b[0m',
-    `... ${wp_postings.length} vagas carregadas com sucesso!`,
-  );
-
-  console.log(``);
+  console.log(`... ${wp_postings.length} vagas carregadas com sucesso!`);
 
   return wp_postings;
 }
@@ -225,10 +219,7 @@ async function getPosts() {
     .catch(next);
   await sleep(200);
 
-  console.log(
-    '\x1b[32m%s\x1b[0m',
-    `... ${posts.length} vagas carregadas com sucesso!\n`,
-  );
+  console.log(`... ${posts.length} vagas carregadas com sucesso!\n`);
 
   return posts;
 }
@@ -265,10 +256,7 @@ async function getWpCategories() {
     .catch(next);
   await sleep(200);
 
-  console.log(
-    '\x1b[32m%s\x1b[0m',
-    `... ${categories.length} categorias carregadas com sucesso!\n`,
-  );
+  console.log(`... ${categories.length} categorias carregadas com sucesso!\n`);
 
   return categories;
 }
@@ -296,10 +284,7 @@ async function getLeverLocations(leverPostings) {
     }
   }
 
-  console.log(
-    '\x1b[32m%s\x1b[0m',
-    `... ${locations.length} localizações carregadas com sucesso!\n`,
-  );
+  console.log(`... ${locations.length} localizações carregadas com sucesso!\n`);
 
   return locations;
 }
@@ -322,10 +307,7 @@ async function getLeverDepartments(leverPostings) {
     }
   }
 
-  console.log(
-    '\x1b[32m%s\x1b[0m',
-    `... ${departments.length} departamentos carregados com sucesso!\n`,
-  );
+  console.log(`... ${departments.length} departamentos carregados com sucesso!\n`);
 
   return departments;
 }
@@ -353,10 +335,7 @@ async function getLeverTeams(leverPostings) {
     }
   }
 
-  console.log(
-    '\x1b[32m%s\x1b[0m',
-    `... ${teams.length} times carregados com sucesso!\n`,
-  );
+  console.log(`... ${teams.length} times carregados com sucesso!\n`);
 
   return teams;
 }
@@ -379,10 +358,7 @@ async function getLeverWorkTypes(leverPostings) {
     }
   }
 
-  console.log(
-    '\x1b[32m%s\x1b[0m',
-    `... ${workTypes.length} senioridades carregadas com sucesso!\n`,
-  );
+  console.log(`... ${workTypes.length} senioridades carregadas com sucesso!\n`);
 
   return workTypes;
 }
@@ -400,10 +376,7 @@ async function getFromTo() {
   await wp.fromTo().then(next).catch(next);
   await sleep(200);
 
-  console.log(
-    '\x1b[32m%s\x1b[0m',
-    '... lista de "de/para" carregados com sucesso!\n',
-  );
+  console.log('... lista de "de/para" carregados com sucesso!\n');
 
   return fromTo;
 }
@@ -614,15 +587,9 @@ async function updatePosts(
           }
 
           await wp.postings().id(wpPosting.id).update(leverPosting)
-            .then(() => console.log(
-              '\x1b[36m%s\x1b[0m',
-              `Atualizando vaga: "${postingTitleRendered}"`,
-            ))
+            .then(() => console.log(`Atualizando vaga: "${postingTitleRendered}"`))
             .catch((error) => console.log(
-              '\x1b[31m%s\x1b[0m',
-              `Erro ao atualizar vaga: "${
-                postingTitleRendered
-              }"\n${error.code}: ${error.message}`,
+              `Erro ao atualizar vaga: "${postingTitleRendered}"\n${error.code}: ${error.message}`,
             ));
           await sleep(200);
         }
@@ -653,15 +620,9 @@ async function updatePosts(
         hasUpdate = true;
 
         await wp.postings().id(wpPosting.id).delete()
-          .then(() => console.log(
-            '\x1b[35m%s\x1b[0m',
-            `Removendo vaga: "${postingTitleRendered}"`,
-          ))
+          .then(() => console.log(`Removendo vaga: "${postingTitleRendered}"`))
           .catch((error) => console.log(
-            '\x1b[31m%s\x1b[0m',
-            `Erro ao remover vaga: "${
-              postingTitleRendered
-            }"\n${error.code}: ${error.message}`,
+            `Erro ao remover vaga: "${postingTitleRendered}"\n${error.code}: ${error.message}`,
           ));
         await sleep(200);
       }
@@ -676,9 +637,8 @@ async function updatePosts(
       await wp.postings().create(newPost)
         .then(() => console.log('\x1b[32m%s\x1b[0m', `Criando vaga: "${newPost.title}"`))
         .catch((error) => console.log(
-          '\x1b[31m%s\x1b[0m',
           `Erro ao criar vaga: "${newPost.title}"\n${error.code}: ${error.message}`,
-        ));
+          ));
       await sleep(200);
 
       
@@ -688,9 +648,8 @@ async function updatePosts(
       hasUpdate = true;
 
       await wp.postings().create(newPost)
-        .then(() => console.log('\x1b[32m%s\x1b[0m', `Criando vaga: "${newPost.title}"`))
+        .then(() => console.log(`Criando vaga: "${newPost.title}"`))
         .catch((error) => console.log(
-          '\x1b[31m%s\x1b[0m',
           `Erro ao criar vaga: "${newPost.title}"\n${error.code}: ${error.message}`,
         ));
       await sleep(200);
@@ -698,15 +657,9 @@ async function updatePosts(
   }
 
   if (hasUpdate) {
-    console.log(
-      '\x1b[32m%s\x1b[0m',
-      '\nVagas atualizadas com sucesso!\n',
-    );
+    console.log('\nVagas atualizadas com sucesso!\n');
   } else {
-    console.log(
-      '\x1b[35m%s\x1b[0m',
-      'Nenhuma vaga foi atualizada.\n',
-    );
+    console.log('Nenhuma vaga foi atualizada.\n');
   }
 }
 
@@ -768,13 +721,9 @@ async function updateCategories(
                 name: newLocationName,
               })
                 .then(() => console.log(
-                  '\x1b[36m%s\x1b[0m',
-                  `Atualizando localização: de "${leverLocation}" para "${
-                    newLocationName
-                  }"`,
+                  `Atualizando localização: de "${leverLocation}" para "${newLocationName}"`,
                 ))
                 .catch((error) => console.log(
-                  '\x1b[31m%s\x1b[0m',
                   `\nErro ao atulizar localização: de ${leverLocation} para ${
                     newLocationName
                   }\n${error.code}: ${error.message}\n`,
@@ -804,12 +753,8 @@ async function updateCategories(
 
       await wp.categories()
         .create(newLocation)
-        .then(() => console.log(
-          '\x1b[32m%s\x1b[0m',
-          `Criando localização: "${newLocation.name}"`,
-        ))
+        .then(() => console.log(`Criando localização: "${newLocation.name}"`))
         .catch((error) => console.log(
-          '\x1b[31m%s\x1b[0m',
           `\nErro ao criar localização: "${newLocation}"\n${error.code}: ${error.message}\n`,
         ));
       await sleep(200);
@@ -817,17 +762,11 @@ async function updateCategories(
   }
 
   if (hasLocationUpdate) {
-    console.log(
-      '\x1b[32m%s\x1b[0m',
-      '\nLocalizações atualizadas com sucesso!\n',
-    );
+    console.log('\nLocalizações atualizadas com sucesso!\n');
 
     wpCategories = await getWpCategories();
   } else {
-    console.log(
-      '\x1b[35m%s\x1b[0m',
-      'Nenhuma localização foi atualizada.\n',
-    );
+    console.log('Nenhuma localização foi atualizada.\n');
   }
 
   // Departments
@@ -858,13 +797,11 @@ async function updateCategories(
             name: currentFromToDepartment.departments_to,
           })
             .then(() => console.log(
-              '\x1b[36m%s\x1b[0m',
               `Atualizando departamento: de "${
                 currentFromToDepartment.departments_from
               }" para "${currentFromToDepartment.departments_to}"`,
             ))
             .catch((err) => console.log(
-              '\x1b[31m%s\x1b[0m',
               `\nErro ao atulizar departamento: de ${
                 currentFromToDepartment.departments_from
               } para ${
@@ -894,12 +831,8 @@ async function updateCategories(
       hasDepartmentUpdate = true;
 
       await wp.categories().create(newDepartment)
-        .then(() => console.log(
-          '\x1b[32m%s\x1b[0m',
-          `Criando departamento: "${newDepartment.name}"`,
-        ))
+        .then(() => console.log(`Criando departamento: "${newDepartment.name}"`))
         .catch((error) => console.log(
-          '\x1b[31m%s\x1b[0m',
           `Erro ao criar departamento: "${newDepartment.name}"\n${error.code}: ${error.message}`,
         ));
       await sleep(200);
@@ -907,17 +840,11 @@ async function updateCategories(
   }
 
   if (hasDepartmentUpdate) {
-    console.log(
-      '\x1b[32m%s\x1b[0m',
-      '\nDepartamentos atualizados com sucesso!\n',
-    );
+    console.log('\nDepartamentos atualizados com sucesso!\n');
 
     wpCategories = await getWpCategories();
   } else {
-    console.log(
-      '\x1b[35m%s\x1b[0m',
-      'Nenhum departamento foi atualizado.\n',
-    );
+    console.log('Nenhum departamento foi atualizado.\n');
   }
 
   // Teams
@@ -955,13 +882,11 @@ async function updateCategories(
               name: currentFromToTeam.teams_to,
             })
               .then(() => console.log(
-                '\x1b[36m%s\x1b[0m',
                 `Atualizando time: de "${currentFromToTeam.teams_from}" para "${
                   currentFromToTeam.teams_to
                 }"`,
               ))
               .catch((error) => console.log(
-                '\x1b[31m%s\x1b[0m',
                 `\nErro ao atulizar time: de ${currentFromToTeam.teams_from} para ${
                   currentFromToTeam.teams_to
                 }\n${error.code}: ${error.message}\n`,
@@ -988,9 +913,8 @@ async function updateCategories(
       hasTeamUpdate = true;
 
       await wp.categories().create(newTeam)
-        .then(() => console.log('\x1b[32m%s\x1b[0m', `Criando time: "${newTeam.name}"`))
+        .then(() => console.log(`Criando time: "${newTeam.name}"`))
         .catch((error) => console.log(
-          '\x1b[31m%s\x1b[0m',
           `Erro ao criar time: "${newTeam.name}"\n${error.code}: ${error.message}`
         ));
       await sleep(200);
@@ -998,17 +922,11 @@ async function updateCategories(
   }
 
   if (hasTeamUpdate) {
-    console.log(
-      '\x1b[32m%s\x1b[0m',
-      '\nTimes atualizados com sucesso!\n',
-    );
+    console.log('\nTimes atualizados com sucesso!\n');
 
     wpCategories = await getWpCategories();
   } else {
-    console.log(
-      '\x1b[35m%s\x1b[0m',
-      'Nenhum time foi atualizado.\n',
-    );
+    console.log('Nenhum time foi atualizado.\n');
   }
 
   // Work Types
@@ -1040,13 +958,11 @@ async function updateCategories(
               name: newSeniorityLevelName,
             })
               .then(() => console.log(
-                '\x1b[36m%s\x1b[0m',
                 `Atualizando senioridade: de "${leverWorkType}" para "${
                   newSeniorityLevelName
                 }"`,
               ))
               .catch((error) => console.log(
-                '\x1b[31m%s\x1b[0m',
                 `\nErro ao atulizar senioridade: de ${leverWorkType} para ${
                   newSeniorityLevelName
                 }\n${error.code}: ${error.message}\n`,
@@ -1075,12 +991,8 @@ async function updateCategories(
 
       await wp.categories()
         .create(newWorkType)
-        .then(() => console.log(
-          '\x1b[32m%s\x1b[0m',
-          `Criando senioridade: "${newWorkType.name}"`,
-        ))
+        .then(() => console.log(`Criando senioridade: "${newWorkType.name}"`))
         .catch((error) => console.log(
-          '\x1b[31m%s\x1b[0m',
           `\nErro ao criar senioridade: "${newWorkType.name}"\n${error.code}: ${error.message}\n`,
         ));
       await sleep(200);
@@ -1088,25 +1000,17 @@ async function updateCategories(
   }
 
   if (hasWorkTypeUpdate) {
-    console.log(
-      '\x1b[32m%s\x1b[0m',
-      '\Senioridades atualizadas com sucesso!\n',
-    );
+    console.log('\nSenioridades atualizadas com sucesso!\n');
 
     wpCategories = await getWpCategories();
   } else {
-    console.log(
-      '\x1b[35m%s\x1b[0m',
-      'Nenhuma senioridade foi atualizada.\n',
-    );
+    console.log('Nenhuma senioridade foi atualizada.\n');
   }
 
   return wpCategories;
 }
 
 async function applyJob() {
-  console.log(URL);
-
   const wpPostings = await getPosts();
   const leverPostings = await getLeverData();
   const leverLocations = await getLeverLocations(leverPostings);
