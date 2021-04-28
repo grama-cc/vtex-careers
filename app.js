@@ -3,6 +3,7 @@ const fetch = require("node-fetch");
 const base64 = require("base-64");
 
 const URL = 'https://careers-vtex.mmg.vfg.mybluehost.me/wp-json';
+const URL = 'https://careers-stg.mmg.vfg.mybluehost.me/wp-json';
 const USER = process.env.WP_USER;
 const TOKEN = process.env.WP_TOKEN;
 const LEVER_API_TOKEN = process.env.LEVER_API_TOKEN;
@@ -457,7 +458,11 @@ async function updatePosts(
             fromToLocation.locations_to &&
             fromToLocation.locations_to.length
           ) {
-            const newLocationNames = fromToLocation.locations_to.replace('; ', ';').split(';');
+            const newLocationNames = fromToLocation.locations_to
+              .replace(/,/g, ';')
+              .replace(/;\s/g, ';')
+              .replace(/\s;/g, ';')
+              .split(';');
 
             if (
               newLocationNames &&
@@ -713,6 +718,7 @@ async function updateCategories(
   fromToLocations,
   fromToDepartments,
   fromToTeams,
+  fromToSeniorityLevels,
 ) {
   wpCategories = await getWpCategories();
 
@@ -733,7 +739,9 @@ async function updateCategories(
 
       if (currentFromToLocations) {
         const newLocationNames = currentFromToLocations.locations_to
+          .replace(/,/g, ';')
           .replace(/;\s/g, ';')
+          .replace(/\s;/g, ';')
           .split(';');
 
         if (newLocationNames && newLocationNames.length) {
@@ -1010,21 +1018,53 @@ async function updateCategories(
   const parentWorkType = getWpCategory(wpCategories, SENIORITY_LEVEL_CATEGORY_NAME, 0);
   let hasWorkTypeUpdate = false;
 
-  if (parentWorkType) {
-    const wpWorkTypes = wpCategories.filter((wC) => (
-      wC.parent === parentWorkType.id
-    ));
+  if (parentWorkType && parentWorkType.id) {
+    const wpWorkTypes = wpCategories.filter((wC) => wC.parent === parentWorkType.id);
 
     for (const leverWorkType of leverWorkTypes) {
-      const wpWorkType = getWpCategory(wpWorkTypes, leverWorkType);
+      const currentFromToSeniorityLevels = fromToSeniorityLevels.find(
+        (fTWT) => fTWT.seniority_levels_from.toLowerCase() === leverWorkType.toLowerCase(),
+      );
 
-      if (!wpWorkType) {
-        const newWorkTypes = {
-          name: leverWorkType,
-          parent: parentWorkType.id,
-        };
+      if (currentFromToSeniorityLevels) {
+        const newSeniorityLevelName = currentFromToSeniorityLevels.seniority_levels_to
 
-        createWorkTypesRepositore.push(newWorkTypes);
+        if (newSeniorityLevel && newSeniorityLevelName.length) {
+          const wpSeniorityLevel = getWpCategory(wpWorkTypes, leverWorkType);
+          const newWpSeniorityLevel = getWpCategory(wpSeniorityLevel, newSeniorityLevelName);
+
+          if (wpSeniorityLevel && !newWpSeniorityLevel) {
+            hasWorkTypeUpdate = true;
+
+            await wp.categories().id(wpWorkTypes.id).update({
+              name: newSeniorityLevelName,
+            })
+              .then(() => console.log(
+                '\x1b[36m%s\x1b[0m',
+                `Atualizando senioridade: de "${leverWorkType}" para "${
+                  newSeniorityLevelName
+                }"`,
+              ))
+              .catch((error) => console.log(
+                '\x1b[31m%s\x1b[0m',
+                `\nErro ao atulizar senioridade: de ${leverWorkType} para ${
+                  newSeniorityLevelName
+                }\n${error.code}: ${error.message}\n`,
+              ));
+            await sleep(200);
+          } else if (!wpWorkTypes && !newWpSeniorityLevel) {
+            createWorkTypesRepositore.push({
+              name: newSeniorityLevelName,
+              parent: parentWorkType.id,
+            });
+          }
+        }
+      } else {
+        const wpSeniorityLevel = getWpCategory(wpWorkTypes, leverWorkType);
+
+        if (!wpSeniorityLevel) {
+          createWorkTypesRepositore.push({ name: leverWorkType, parent: parentWorkType.id });
+        }
       }
     }
   }
@@ -1033,11 +1073,15 @@ async function updateCategories(
     for (const newWorkType of createWorkTypesRepositore) {
       hasWorkTypeUpdate = true;
 
-      await wp.categories().create(newWorkType)
-        .then(() => console.log('\x1b[32m%s\x1b[0m', `Criando senioridade: "${newWorkType.name}"`))
+      await wp.categories()
+        .create(newWorkType)
+        .then(() => console.log(
+          '\x1b[32m%s\x1b[0m',
+          `Criando senioridade: "${newWorkType.name}"`,
+        ))
         .catch((error) => console.log(
           '\x1b[31m%s\x1b[0m',
-          `Erro ao criar senioridade: "${newWorkType.name}"\n${error.code}: ${error.message}`,
+          `\nErro ao criar senioridade: "${newWorkType.name}"\n${error.code}: ${error.message}\n`,
         ));
       await sleep(200);
     }
@@ -1046,14 +1090,14 @@ async function updateCategories(
   if (hasWorkTypeUpdate) {
     console.log(
       '\x1b[32m%s\x1b[0m',
-      'Senioridades atualizadas com sucesso!\n',
+      '\Senioridades atualizadas com sucesso!\n',
     );
 
     wpCategories = await getWpCategories();
   } else {
     console.log(
       '\x1b[35m%s\x1b[0m',
-      'Nenhuma senioridade foi atualizado.\n',
+      'Nenhuma senioridade foi atualizada.\n',
     );
   }
 
@@ -1061,6 +1105,8 @@ async function updateCategories(
 }
 
 async function applyJob() {
+  console.log(URL);
+
   const wpPostings = await getPosts();
   const leverPostings = await getLeverData();
   const leverLocations = await getLeverLocations(leverPostings);
@@ -1071,6 +1117,7 @@ async function applyJob() {
   const fromToLocations = fromTo && fromTo.locations ? fromTo.locations : [];
   const fromToDepartments = fromTo && fromTo.departments ? fromTo.departments : [];
   const fromToTeams = fromTo && fromTo.teams ? fromTo.teams : [];
+  const fromToSeniorityLevels = fromTo && fromTo.seniority_levels ? fromTo.seniority_levels : [];
 
   const wpCategories = await updateCategories(
     leverDepartments,
@@ -1080,6 +1127,7 @@ async function applyJob() {
     fromToLocations,
     fromToDepartments,
     fromToTeams,
+    fromToSeniorityLevels,
   );
 
   await updatePosts(
