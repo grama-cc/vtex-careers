@@ -262,7 +262,7 @@ async function getWpCategories() {
 }
 
 async function getLeverLocations(leverPostings) {
-  console.log('Carregando localizações dos posts do Lever ...');
+  console.log('\nCarregando localizações dos posts do Lever ...');
 
   const locations = [];
 
@@ -635,7 +635,7 @@ async function updatePosts(
       hasUpdate = true;
 
       await wp.postings().create(newPost)
-        .then(() => console.log('\x1b[32m%s\x1b[0m', `Criando vaga: "${newPost.title}"`))
+        .then(() => console.log(`Criando vaga: "${newPost.title}"`))
         .catch((error) => console.log(
           `Erro ao criar vaga: "${newPost.title}"\n${error.code}: ${error.message}`,
           ));
